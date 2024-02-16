@@ -1,12 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 #[ink::contract]
-mod aleph_xtf {
+mod fungible_token {
 
     use ink::storage::Mapping;
 
     #[ink(storage)]
-    pub struct AlephXtf {
+    pub struct FungibleToken {
         /// Stores a single `bool` value on the storage.
         owner: AccountId,
         total_supply: Balance,
@@ -19,7 +19,7 @@ mod aleph_xtf {
         InsufficientBalance,
     }
 
-    impl AlephXtf {
+    impl FungibleToken {
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
         pub fn new(total_supply: Balance) -> Self {
@@ -86,7 +86,7 @@ mod aleph_xtf {
         fn transfer_works() {
             let total_supply = 100;
             let quantity_to_bob = 10;
-            let mut mytoken = AlephXtf::new(total_supply);
+            let mut mytoken = FungibleToken::new(total_supply);
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
 
             assert_eq!(mytoken.balance_of(accounts.bob), 0);
