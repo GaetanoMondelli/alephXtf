@@ -15,6 +15,8 @@ mod fungible_token {
         fn transfer(&mut self, to: AccountId, value: Balance) -> Result<Balance, Error>;
         #[ink(message)]
         fn get_owner(&self) -> AccountId;
+        #[ink(message)]
+        fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance) -> Result<Balance, Error>;
     }
     
 
@@ -75,6 +77,23 @@ mod fungible_token {
         #[ink(message)]
         fn transfer(&mut self, to: AccountId, value: Balance) -> Result<Balance, Error> {
             let from = self.env().caller();
+            let from_balance = self.balance_of(from);
+            if from_balance < value {
+                return Err(Error::InsufficientBalance);
+            }
+            let to_balance = self.balance_of(to);
+
+            self.balances.insert(from, &(from_balance - value));
+            self.balances.insert(to, &(to_balance + value));
+
+            Ok(self.balance_of(from))
+        }
+
+        #[ink(message)]
+        fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance) -> Result<Balance, Error> {
+            let caller = self.env().caller();
+            // TO-DO: need to check if the caller is allowed to transfer from `from`
+
             let from_balance = self.balance_of(from);
             if from_balance < value {
                 return Err(Error::InsufficientBalance);

@@ -19,6 +19,26 @@ mod escrow {
         TransferFailed,
     }
 
+    #[ink(event)]
+    pub struct Deposit {
+        #[ink(topic)]
+        token: AccountId,
+        #[ink(topic)]
+        amount: Balance,
+    }
+
+    #[ink(event)]
+    pub struct WithdrawAll {}
+
+
+    #[ink(event)]
+    pub struct Withdrawal {
+        #[ink(topic)]
+        token: AccountId,
+        #[ink(topic)]
+        amount: Balance,
+    }
+
     #[ink::trait_definition]
     pub trait Erc20 {
         #[ink(message)]
@@ -84,7 +104,7 @@ mod escrow {
             let transfer_selector = Selector::new(transfer_selector);
 
             build_call::<DefaultEnvironment>()
-                .call(token) // Usando il metodo `call` invece di `callee`
+                .call(token)
                 .gas_limit(0)
                 .transferred_value(0)
                 .exec_input(
@@ -95,12 +115,14 @@ mod escrow {
                 .returns::<()>()
                 .invoke();
 
+            // Emit the deposit event
+            self.env().emit_event(Deposit { token, amount });
+
             // Update the balances
             let balance = self.get_balance(token);
             self.balances.insert(token, &(balance + amount));
             Ok(())
         }
-
 
         #[ink(message)]
         pub fn withdraw(&mut self, token: AccountId, amount: Balance) -> Result<(), EscrowError> {
@@ -126,7 +148,7 @@ mod escrow {
             let transfer_selector = Selector::new(transfer_selector);
 
             build_call::<DefaultEnvironment>()
-                .call(token) // Usando il metodo `call` invece di `callee`
+                .call(token)
                 .gas_limit(0)
                 .transferred_value(0)
                 .exec_input(
@@ -139,6 +161,41 @@ mod escrow {
 
             // Update the balances
             self.balances.insert(token, &(balance - amount));
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn withdraw_all(&mut self) -> Result<(), EscrowError> {
+            let caller = self.env().caller();
+            // only the admin can withdraw
+            if caller != self.admin {
+                return Err(EscrowError::TransferFailed);
+            }
+
+            for token in self.tokens.iter() {
+                let balance = self.get_balance(*token);
+                if balance > 0 {
+                    // Get the selector for the transfer function
+                    let transfer_selector = Escrow::calculate_selector("transfer");
+                    let transfer_selector = Selector::new(transfer_selector);
+
+                    build_call::<DefaultEnvironment>()
+                        .call(*token)
+                        .gas_limit(0)
+                        .transferred_value(0)
+                        .exec_input(
+                            ExecutionInput::new(transfer_selector)
+                                .push_arg(caller)
+                                .push_arg(balance),
+                        )
+                        .returns::<()>()
+                        .invoke();
+
+                    // Update the balances
+                    self.balances.insert(*token, &0);
+                }
+            }
+            self.env().emit_event(WithdrawAll {});
             Ok(())
         }
 
