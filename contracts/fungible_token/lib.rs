@@ -4,9 +4,14 @@
 mod fungible_token {
     
     use ink::storage::Mapping;
+    use ink::prelude::string::String;
 
     #[ink::trait_definition]
     pub trait Erc20 {
+        #[ink(message)]
+        fn get_name(&self) -> String;
+        #[ink(message)]
+        fn get_symbol(&self) -> String;
         #[ink(message)]
         fn balance_of(&self, owner: AccountId) -> Balance;
         #[ink(message)]
@@ -22,6 +27,8 @@ mod fungible_token {
 
     #[ink(storage)]
     pub struct FungibleToken {
+        name: String,
+        symbol: String,
         owner: AccountId,
         total_supply: Balance,
         balances: Mapping<AccountId, Balance>,
@@ -36,11 +43,14 @@ mod fungible_token {
     impl FungibleToken {
         /// Constructor that initializes the `FungibleToken`.
         #[ink(constructor)]
-        pub fn new(total_supply: Balance) -> Self {
+        pub fn new(name: String, symbol: String, total_supply: Balance) -> Self {
             let mut balances = Mapping::new();
             let owner = Self::env().caller();
+            
             balances.insert(owner, &total_supply);
             Self {
+                name,
+                symbol,
                 owner,
                 total_supply,
                 balances,
@@ -59,6 +69,17 @@ mod fungible_token {
     }
 
     impl Erc20 for FungibleToken {
+
+        #[ink(message)]
+        fn get_name(&self) -> String {
+            return self.name.clone();
+        }
+
+        #[ink(message)]
+        fn get_symbol(&self) -> String {
+            return self.symbol.clone();
+        }
+
         #[ink(message)]
         fn total_supply(&self) -> Balance {
             self.total_supply
@@ -91,7 +112,7 @@ mod fungible_token {
 
         #[ink(message)]
         fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance) -> Result<Balance, Error> {
-            let caller = self.env().caller();
+            // let caller = self.env().caller();
             // TO-DO: need to check if the caller is allowed to transfer from `from`
 
             let from_balance = self.balance_of(from);
@@ -113,13 +134,27 @@ mod fungible_token {
 
         #[ink::test]
         fn total_supply_works() {
-            let mytoken = FungibleToken::new(100);
+            let name = "MyToken".to_string();
+            let symbol = "MTK".to_string();
+            let total_supply = 100;
+            let mytoken = FungibleToken::new(
+                name,
+                symbol,
+                total_supply
+            );
             assert_eq!(mytoken.total_supply(), 100);
         }
 
         #[ink::test]
         fn balance_of_works() {
-            let mytoken = FungibleToken::new(100);
+            let name = "MyToken".to_string();
+            let symbol = "MTK".to_string();
+            let total_supply = 100;
+            let mytoken = FungibleToken::new(
+                name,
+                symbol,
+                total_supply
+            );
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             assert_eq!(mytoken.balance_of(accounts.alice), 100);
             assert_eq!(mytoken.balance_of(accounts.bob), 0);
@@ -127,9 +162,15 @@ mod fungible_token {
 
         #[ink::test]
         fn transfer_works() {
+            let name = "MyToken".to_string();
+            let symbol = "MTK".to_string();
             let total_supply = 100;
             let quantity_to_bob = 10;
-            let mut mytoken = FungibleToken::new(total_supply);
+            let mut mytoken = FungibleToken::new(
+                name,
+                symbol,
+                total_supply
+            );
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
 
             assert_eq!(mytoken.balance_of(accounts.bob), 0);
@@ -144,7 +185,13 @@ mod fungible_token {
         fn mint_to_works() {
             let total_supply = 100;
             let quantity_to_bob = 10;
-            let mut mytoken = FungibleToken::new(total_supply);
+            let name = "MyToken".to_string();
+            let symbol = "MTK".to_string();
+
+            let mut mytoken = FungibleToken::new(
+                name,
+                symbol,
+                total_supply);
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
 
             assert_eq!(mytoken.balance_of(accounts.bob), 0);
