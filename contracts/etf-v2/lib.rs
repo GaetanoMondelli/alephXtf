@@ -1,14 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
 #[ink::contract]
-mod etf {
+mod etf_escrow {
 
     use ink::env::{
         call::{build_call, ExecutionInput, Selector},
         DefaultEnvironment,
     };
 
-    use ink::prelude::string::String;
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
 
@@ -66,7 +65,7 @@ mod etf {
     }
 
     #[ink(storage)]
-    pub struct Etf {
+    pub struct EtfEscrow {
         vaults_quantity: u8,
         required_tokens: Vec<AccountId>,
         required_balances: Vec<Balance>,
@@ -76,7 +75,7 @@ mod etf {
         total_supply: Balance,
     }
 
-    impl Etf {
+    impl EtfEscrow {
         #[ink(constructor)]
         pub fn new(required_tokens: Vec<AccountId>, required_balances: Vec<Balance>) -> Self {
             Self {
@@ -121,7 +120,7 @@ mod etf {
         }
 
         #[ink(message)]
-        pub fn open_vault(&mut self, vault: u8) -> Result<u8, ContractError> {
+        pub fn open_vault(&mut self, owner: AccountId, vault: u8) -> Result<u8, ContractError> {
             let caller = self.env().caller();
 
             if self.vaults.contains(&vault) {
@@ -129,8 +128,12 @@ mod etf {
             }
 
             for (i, token) in self.required_tokens.iter().enumerate() {
-                let transfer_selector = Selector::new(TRANSFER_FROM_SELECTOR);
-                let required_balance = self.required_balances[i];
+                let balance = self.balances.get(token).unwrap_or(0);
+                if balance < self.required_balances[i] {
+                    return Err(ContractError::InsufficientBalance);
+                }
+
+                let transfer_selector =  Selector::new(TRANSFER_FROM_SELECTOR);
 
                 build_call::<DefaultEnvironment>()
                     .call(*token)
@@ -140,7 +143,7 @@ mod etf {
                         ExecutionInput::new(transfer_selector)
                             .push_arg(caller)
                             .push_arg(self.env().account_id())
-                            .push_arg(required_balance),
+                            .push_arg(balance),
                     )
                     .returns::<()>()
                     .invoke();
@@ -151,18 +154,17 @@ mod etf {
             }
 
             let vault = self.vaults_quantity;
-            self.vaults.insert(vault, &caller);
+            self.vaults.insert(vault, &owner);
             self.vaults_quantity += 1;
-            let vaults_quantity_of_caller =
-                self.vaults_quantity_per_owner.get(&caller).unwrap_or(0);
+            let vaults_quantity_of_owner = self.vaults_quantity_per_owner.get(&owner).unwrap_or(0);
             self.vaults_quantity_per_owner
-                .insert(caller, &(vaults_quantity_of_caller + 1));
+                .insert(owner, &(vaults_quantity_of_owner + 1));
 
             // mint the etf tokens shares to the caller
             let caller_balance = self.balances.get(caller).unwrap_or(0);
             self.balances.insert(caller, &(caller_balance + SHARES));
 
-            self.env().emit_event(VaultOpened { vault, owner: caller });
+            self.env().emit_event(VaultOpened { vault, owner });
             Ok(vault)
         }
 
@@ -177,10 +179,8 @@ mod etf {
                 return Err(ContractError::InsufficientBalance);
             }
 
-            let _ = self
-                .balances
-                .insert(caller, &(caller_shares_balance - SHARES));
-            let transfer_selector = Selector::new(TRANSFER_FROM_SELECTOR);
+            let _ = self.balances.insert(caller, &(caller_shares_balance - SHARES));
+            let transfer_selector =  Selector::new(TRANSFER_FROM_SELECTOR);
 
             for (i, token) in self.required_tokens.iter().enumerate() {
                 // let balance = self.balances.get(token).unwrap_or(0);
@@ -209,17 +209,19 @@ mod etf {
             self.env().emit_event(VaultClosed { vault, owner });
             Ok(())
         }
+
     }
 
-    impl Erc20 for Etf {
+    impl Erc20 for EtfEscrow {
+
         #[ink(message)]
         fn get_name(&self) -> String {
-            return String::from("X-ETF-INDEX-0");
+            "XTF-Index-0".to_string()
         }
 
         #[ink(message)]
         fn get_symbol(&self) -> String {
-            return String::from("XTF");
+            "XTF".to_string()
         }
 
         #[ink(message)]

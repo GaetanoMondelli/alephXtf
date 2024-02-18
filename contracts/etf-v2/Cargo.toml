@@ -1,16 +1,16 @@
 [package]
-name = "escrow"
+name = "etf"
 version = "0.1.0"
 authors = ["gaetano.mondelli@gmail.com"]
 edition = "2021"
 
 [dependencies]
 ink = { version = "4.2.0", default-features = false }
-blake2b = "*"
-blake2-rfc = "0.2.18"
 
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
+
+escrow = { path = "../escrow" }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"

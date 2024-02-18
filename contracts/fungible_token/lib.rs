@@ -6,6 +6,8 @@ mod fungible_token {
     use ink::storage::Mapping;
     use ink::prelude::string::String;
 
+    pub const TRANSFER_FROM_SELECTOR: [u8; 4] = [0, 0, 0, 6];
+
     #[ink::trait_definition]
     pub trait Erc20 {
         #[ink(message)]
@@ -20,7 +22,7 @@ mod fungible_token {
         fn transfer(&mut self, to: AccountId, value: Balance) -> Result<Balance, Error>;
         #[ink(message)]
         fn get_owner(&self) -> AccountId;
-        #[ink(message)]
+        #[ink(message, selector = 6)]
         fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance) -> Result<Balance, Error>;
     }
     
@@ -110,7 +112,7 @@ mod fungible_token {
             Ok(self.balance_of(from))
         }
 
-        #[ink(message)]
+        #[ink(message, selector = 6)]
         fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance) -> Result<Balance, Error> {
             // let caller = self.env().caller();
             // TO-DO: need to check if the caller is allowed to transfer from `from`
